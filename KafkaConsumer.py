@@ -52,12 +52,12 @@ MODEL_PATH = "lr_bestModel"
 
 
 def get_hate_demo_samples():
-    hate_samples = list(json.load(open("HateSpeech.json")).values())
+    hate_samples = list(json.load(open("HateSpeech.json")).items())
     hate_samples = random.sample(hate_samples, 100) # get 100 samples
     ids, tweets, time_stamps = [], [], []
-    for _, tweet in hate_samples.items():
+    for sample in hate_samples:
         ids.append(str(uuid.uuid1()))
-        tweets.append(tweet)
+        tweets.append(sample[1])
         time_stamps.append(datetime.now().isoformat()+"Z")
 
     return ids, tweets, time_stamps
@@ -260,7 +260,7 @@ data_samples = []
 bad_req_count = 0
 try:
     while True:
-        if bad_req_count > 30:
+        if bad_req_count > 10:
             break
         msg = c.poll(timeout=1.0)
         if msg is None:
