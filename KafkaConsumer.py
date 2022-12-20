@@ -163,12 +163,6 @@ def predict_hate_tweet(df, model_path):
     return res
 
 
-def push_bad_pred_to_mongo(raw_data):
-    # MongoDB Atlas connection string
-    client = MongoClient("mongodb+srv://admin:admin123@cluster0.agqa7fr.mongodb.net/?retryWrites=true&w=majority")
-    pass
-
-
 def push_bad_pred_to_mongo(raw_data, threshold=0.7):
     # select documents with low confidence and push to collection: failed_tweets
     # expected raw data schema:
@@ -223,8 +217,12 @@ def transform_and_update_mongo(raw_data):
     # MongoDB Atlas connection string
     client = MongoClient("mongodb+srv://admin:admin123@cluster0.agqa7fr.mongodb.net/?retryWrites=true&w=majority")
     db = client.get_database("Tweets")
+
+    # push clean tweets
+    table = db.clean_tweets
+    table.insert_many(raw_data)
     
-    # get table class
+    # push word frequencies
     table = db.processed_tweets
     response = list(table.find({'time_id':time_id}))
     texts = ''.join([document['tweet'] for document in raw_data]).split()
@@ -262,6 +260,8 @@ bad_req_count = 0
 try:
     while True:
         if bad_req_count > 10:
+            break
+        if len(data_samples) >= 2000:
             break
         msg = c.poll(timeout=1.0)
         if msg is None:
@@ -306,7 +306,7 @@ df = transform_data(df)
 
 print("Inferencing...")
 res = predict_hate_tweet(df, model_path=MODEL_PATH)
-pprint(res)
+pprint(res[:3])
 
 transform_and_update_mongo(res)
 print("pushed predicted data to mongoDB")
