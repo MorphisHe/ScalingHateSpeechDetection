@@ -23,6 +23,7 @@ from pymongo import MongoClient
 from datetime import datetime
 import uuid
 import random
+from pprint import pprint
 
 
 
@@ -58,7 +59,7 @@ def get_hate_demo_samples():
     for sample in hate_samples:
         ids.append(str(uuid.uuid1()))
         tweets.append(sample[1])
-        time_stamps.append(datetime.now().isoformat()+"Z")
+        time_stamps.append(datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z"))
 
     return ids, tweets, time_stamps
 
@@ -305,7 +306,7 @@ df = transform_data(df)
 
 print("Inferencing...")
 res = predict_hate_tweet(df, model_path=MODEL_PATH)
-print(res)
+pprint(res)
 
 transform_and_update_mongo(res)
 print("pushed predicted data to mongoDB")
