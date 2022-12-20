@@ -53,7 +53,7 @@ MODEL_PATH = "lr_bestModel"
 
 def get_hate_demo_samples():
     hate_samples = list(json.load(open("HateSpeech.json")).values())
-    hate_samples = len(random.sample(hate_samples, 100)) # get 100 samples
+    hate_samples = random.sample(hate_samples, 100) # get 100 samples
     ids, tweets, time_stamps = [], [], []
     for _, tweet in hate_samples.items():
         ids.append(str(uuid.uuid1()))
