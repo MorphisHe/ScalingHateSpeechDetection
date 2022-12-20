@@ -260,9 +260,7 @@ data_samples = []
 bad_req_count = 0
 try:
     while True:
-        if bad_req_count > 10:
-            break
-        if len(data_samples) >= 5:
+        if bad_req_count > 30:
             break
         msg = c.poll(timeout=1.0)
         if msg is None:
