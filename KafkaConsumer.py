@@ -157,7 +157,7 @@ def predict_hate_tweet(df, model_path):
     predictions = process_prediction(predictions)
 
     # convert to json
-    # [{"id":"tweet_1", "prediction":hate|not-hate, "probability":0.99}, ...]
+    # [{"id":"tweet_1", "prediction":hate|not_hate, "probability":0.99}, ...]
     res = list(map(lambda row: row.asDict(), predictions.collect()))
 
     return res
@@ -178,7 +178,7 @@ def push_bad_pred_to_mongo(raw_data, threshold=0.7):
     # {
     #  id: string
     #  tweet: string
-    #  prediction: binary string (hate | non-hate)
+    #  prediction: binary string (hate | not_hate)
     # }
 
     # MongoDB Atlas connection string
