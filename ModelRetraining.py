@@ -17,7 +17,7 @@ from pyspark.ml.feature import HashingTF, IDF, Tokenizer
 from pyspark.ml.classification import LogisticRegression
 
 from pymongo import MongoClient
-
+import random
 
 
 # init spark
@@ -37,15 +37,16 @@ def get_data(data_samples):
     ids = []
     tweets = []
     labels = []
-    label_flip = {"hate": 0, "non-hate": 1}
     for data in data_samples:
         ids.append(data["id"])
         tweets.append(data["tweet"])
 
         # since we dont have really human annotator
         # we will flip the model prediction and use it as true label
-        label = data["prediction"]
-        labels.append(label_flip[label])
+        label = 0
+        if random.random() >= 0.5:
+            label = 1
+        labels.append(label)
     
     return ids, tweets, labels
 
