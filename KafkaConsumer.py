@@ -100,6 +100,21 @@ def preprocess_data(ids: List[str], tweets: List[str], time_stamps: List[str]):
         
         return tweet
 
+    @udf(returnType=StringType())
+    def get_cleaned_tweet_wo_hashtag(tweet):
+        tweet = re.sub("#[A-Za-z0-9_]+","", tweet)
+        tweet = re.sub(r'http\S+', '', tweet) # remove urls
+        tweet = re.sub(r'[a-z0-9\.\-+_]+@[a-z0-9\.\-+_]+\.[a-z]+', '', tweet) # remove emails
+        tweet = re.sub('[^a-zA-Z0-9]', " ", tweet) # replace special chars with white space
+        tweet = re.sub(r'\s+', ' ', tweet) # replace whitespace(s) with a single space
+        tweet = re.sub(r'^\s+|\s+?$', '', tweet) # remove leading and trailing whitespace
+        tweet = re.sub(r'\d+(\.\d+)?', '[num]', tweet) # replace all numbers with string `num`
+        tweet = tweet.lower() # lowercase
+        tweet = ' '.join([word for word in tweet.split() if not word in stopwords_list])
+
+        return tweet
+
+    df = df.withColumn("tweet_wo_hashtag", get_cleaned_tweet_wo_hashtag("tweet"))
     df = df.withColumn("tweet", get_cleaned_tweet("tweet"))
 
     return df
@@ -124,7 +139,7 @@ def transform_data(df):
 
 def process_prediction(predictions):
     # formate the prediction
-    predictions = predictions.select(["id", "tweet", "time_stamp", "prediction", "probability"]) # filter out rawPrediction
+    predictions = predictions.select(["id", "tweet", "tweet_wo_hashtag", "time_stamp", "prediction", "probability"]) # filter out rawPrediction
     predictions = predictions.withColumnRenamed("probability", "confidence_score") # rename
 
     # change prediction to str and confidence_score to list[float], also map prediction to class in str
@@ -157,7 +172,14 @@ def predict_hate_tweet(df, model_path):
     predictions = process_prediction(predictions)
 
     # convert to json
-    # [{"id":"tweet_1", "prediction":hate|not_hate, "probability":0.99}, ...]
+    # {
+    #  id: string
+    #  tweet: string
+    #  tweet_wo_hashtag: string
+    #  time_stamp: string
+    #  prediction: binary string
+    #  confidence_score: double
+    # }
     res = list(map(lambda row: row.asDict(), predictions.collect()))
 
     return res
@@ -169,6 +191,7 @@ def push_bad_pred_to_mongo(raw_data, threshold=0.7):
     # {
     #  id: string
     #  tweet: string
+    #  tweet_wo_hashtag: string
     #  time_stamp: string
     #  prediction: binary string
     #  confidence_score: double
@@ -192,6 +215,7 @@ def push_bad_pred_to_mongo(raw_data, threshold=0.7):
     for doc in filtered_data:
         doc.pop('confidence_score')
         doc.pop('time_stamp')
+        doc.pop('tweet_wo_hashtag')
     print(f"==> pushing {len(filtered_data)} bad predictions to DB")
     table.insert_many(filtered_data)
 
@@ -201,6 +225,7 @@ def transform_and_update_mongo(raw_data):
     # {
     #  id: string
     #  tweet: string
+    #  tweet_wo_hashtag: string
     #  time_stamp: string
     #  prediction: binary string
     #  confidence_score: double
@@ -211,42 +236,26 @@ def transform_and_update_mongo(raw_data):
     #  time: DateTime
     #  frequency: list of tuple
     # }
-    global_time_stamp = datetime.strptime(raw_data[0]['time_stamp'], "%Y-%m-%dT%H:%M:%S.000Z")
-    time_id = str(global_time_stamp.year) + str(global_time_stamp.month) + str(global_time_stamp.day)
     
     # MongoDB Atlas connection string
-    client = MongoClient("mongodb+srv://admin:admin123@cluster0.agqa7fr.mongodb.net/?retryWrites=true&w=majority")
-    db = client.get_database("Tweets")
-
-    # push clean tweets
-    table = db.clean_tweets
-    table.insert_many(raw_data)
+    client=MongoClient("mongodb+srv://admin:admin123@cluster0.agqa7fr.mongodb.net/?retryWrites=true&w=majority")
+    db=client.get_database("Tweets")
+    # get table class
+    table=db.processed_tweets
     
-    # push word frequencies
-    table = db.processed_tweets
-    response = list(table.find({'time_id':time_id}))
-    texts = ''.join([document['tweet'] for document in raw_data]).split()
-    
-    # new data, create new document in collection: processed_tweets
-    if len(response) == 0:
-        frequency = {}
-        for word in texts:
-            if word in frequency.keys():
-                frequency[word]+=1
-            else:
-                frequency[word]=1
-        frequency = sorted(frequency.items(), key=lambda x: x[1], reverse=True)
-        table.insert_many([{'time': global_time_stamp, 'time_id': time_id, 'frequency': frequency}])
-    # old data, update existing
-    else:
-        frequency = dict(response[0]['frequency'])
-        for word in texts:
-            if word in frequency.keys():
-                frequency[word] += 1
-            else:
-                frequency[word] = 1
-        frequency = sorted(frequency.items(), key=lambda x: x[1], reverse=True)
-        table.update_many({'time_id':time_id}, [{"$set":{"frequency":frequency}}])
+    data=[]
+    for query in raw_data:
+        time_stamp=datetime.strptime(query['time_stamp'], "%Y-%m-%dT%H:%M:%S.000Z")
+        time_id=str(time_stamp.year)+str(time_stamp.month)+str(time_stamp.day)
+        pred=query["prediction"]
+        for word in query["tweet_wo_hashtag"].split():
+            data.append({
+                    "word": word, 
+                    "time": time_id, 
+                    "prediction": pred
+                }
+            )
+    table.insert_many(data)
 
 
 
@@ -261,7 +270,7 @@ try:
     while True:
         if bad_req_count > 10:
             break
-        if len(data_samples) >= 2000:
+        if len(data_samples) >= 100:
             break
         msg = c.poll(timeout=1.0)
         if msg is None:
