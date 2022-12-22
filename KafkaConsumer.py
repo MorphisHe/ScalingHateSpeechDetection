@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from confluent_kafka import Consumer, KafkaException, KafkaError
+from datetime import datetime
 
 from nltk.corpus import stopwords
 import nltk
@@ -236,18 +237,25 @@ def transform_and_update_mongo(raw_data):
     #  time: DateTime
     #  frequency: list of tuple
     # }
-    
     # MongoDB Atlas connection string
-    client=MongoClient("mongodb+srv://admin:admin123@cluster0.agqa7fr.mongodb.net/?retryWrites=true&w=majority")
-    db=client.get_database("Tweets")
-    # get table class
-    table=db.processed_tweets
+    client = MongoClient("mongodb+srv://admin:admin123@cluster0.agqa7fr.mongodb.net/?retryWrites=true&w=majority")
+    db = client.get_database("Tweets")
     
-    data=[]
+    # push clean tweets
+    table = db.clean_tweets
+    for sample in raw_data:
+        sample["time_stamp"] = datetime.strptime(sample["time_stamp"], "%Y-%m-%dT%H:%M:%S.000Z")
+    table.insert_many(raw_data)
+
+
+    # get table class
+    table = db.processed_tweets
+    
+    data = []
     for query in raw_data:
-        time_stamp=datetime.strptime(query['time_stamp'], "%Y-%m-%dT%H:%M:%S.000Z")
-        time_id=str(time_stamp.year)+str(time_stamp.month)+str(time_stamp.day)
-        pred=query["prediction"]
+        time_stamp = query["time_stamp"]
+        time_id = str(time_stamp.year)+str(time_stamp.month)+str(time_stamp.day)
+        pred = query["prediction"]
         for word in query["tweet_wo_hashtag"].split():
             data.append({
                     "word": word, 
