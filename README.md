@@ -17,11 +17,11 @@ follow [modeling/lr_hate_speech.ipynb](modeling/lr_hate_speech.ipynb) to train t
 
 ## Starting the System
 ```bash
-# start Kafka Producer
+# Run Kafka Producer
 python3 TwitterStreaming.py
 ```
 ```bash
-# start Kafka Consumer
+# Run Kafka Consumer
 python3 KafkaConsumer.py
 ```
 ```bash
