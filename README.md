@@ -1,6 +1,17 @@
 # BD-HateSpeech
 This project implements a system using big data tools to achieve real time hate-speech classification on twitter data stream
 
+## Tech Stacks
+- Spark, Spark MLlib
+- Kafka
+- MongoDB
+- AWS Clound Services
+
+<br>
+
+## System Design
+![](system_design.png)
+
 <br>
 
 ## Requirements for Enviornment
